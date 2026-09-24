@@ -1,6 +1,7 @@
 /*
   ESP32 OLED Digital Clock — Minimal стиль
-  Если нет Wi-Fi / времени → показывает --:--
+  Мигающее двоеточие
+  Если нет времени → --:--
 
   Подключение:
     OLED  VCC→3.3V  GND→GND  SDA→21  SCL→22
@@ -13,7 +14,7 @@
 #include <Adafruit_SSD1306.h>
 
 // ===================== НАСТРОЙКИ WI-FI =====================
-const char* WIFI_SSID     = "Ufanet_21";        // <-- сюда SSID
+const char* WIFI_SSID     = "ВАШ_SSID";        // <-- сюда SSID
 const char* WIFI_PASSWORD = "ВАШ_ПАРОЛЬ";      // <-- сюда пароль
 // ===========================================================
 
@@ -23,7 +24,7 @@ const char* ntpServer2 = "1.ru.pool.ntp.org";
 const char* ntpServer3 = "ntp1.vniiftri.ru";
 
 // Часовой пояс: Москва UTC+3
-const long  gmtOffset_sec = 5 * 3600;
+const long  gmtOffset_sec = 3 * 3600;
 const int   daylightOffset_sec = 0;
 
 #define SCREEN_WIDTH  128
@@ -45,10 +46,8 @@ void setup() {
     while (true) delay(1000);
   }
 
-  // Сразу показываем --:-- пока нет времени
   showDashes();
 
-  // Wi-Fi (тихо, без надписей на экране)
   WiFi.mode(WIFI_STA);
   WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
 
@@ -62,7 +61,6 @@ void setup() {
     Serial.println(F("WiFi OK"));
     configTime(gmtOffset_sec, daylightOffset_sec, ntpServer1, ntpServer2, ntpServer3);
 
-    // Ждём первую синхронизацию
     struct tm timeinfo;
     int wait = 0;
     while (!getLocalTime(&timeinfo) && wait < 15) {
@@ -76,7 +74,6 @@ void setup() {
 }
 
 void loop() {
-  // Периодически пробуем получить время, если его ещё нет
   if (!timeSynced && millis() - lastNtpTry > 15000) {
     lastNtpTry = millis();
     if (WiFi.status() == WL_CONNECTED) {
@@ -88,23 +85,27 @@ void loop() {
   struct tm timeinfo;
   if (getLocalTime(&timeinfo)) {
     timeSynced = true;
+
     char tH[3], tM[3];
     strftime(tH, sizeof(tH), "%H", &timeinfo);
     strftime(tM, sizeof(tM), "%M", &timeinfo);
+
+    // Мигание двоеточия раз в секунду
+    bool colonOn = (timeinfo.tm_sec % 2 == 0);
 
     display.clearDisplay();
     display.setTextColor(SSD1306_WHITE);
     display.setTextSize(4);
     display.setCursor(8, 16);
     display.print(tH);
-    display.print(":");
+    display.print(colonOn ? ":" : " ");
     display.print(tM);
     display.display();
   } else {
     showDashes();
   }
 
-  delay(500);
+  delay(200);
 }
 
 void showDashes() {
